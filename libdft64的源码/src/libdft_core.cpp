@@ -97,7 +97,7 @@ static void PIN_FAST_ANALYSIS_CALL r2m_save_opl(THREADID tid, ADDRINT dst) {
   }
 }
 
-static bool reg_eq(INS ins) {
+static bool reg_eq(INS ins) {      //第一二个操作数都是寄存器且是同一个寄存器返回true
   return (!INS_OperandIsImmediate(ins, OP_1) &&
           INS_MemoryOperandCount(ins) == 0 &&
           INS_OperandReg(ins, OP_0) == INS_OperandReg(ins, OP_1));
@@ -116,19 +116,19 @@ static void PIN_FAST_ANALYSIS_CALL m_cmp(THREADID tid, ADDRINT dst) {
   }
 }
 
-void ins_cmp_op(INS ins) {
-  if (INS_OperandIsReg(ins, OP_0)) {
-    REG reg_dst = INS_OperandReg(ins, OP_0);
+void ins_cmp_op(INS ins) {  //根据指令操作数分情况执行查桩
+  if (INS_OperandIsReg(ins, OP_0)) {   //操作数一为寄存器
+    REG reg_dst = INS_OperandReg(ins, OP_0);   //把第一操作数的寄存器名称返回
     INS_InsertCall(ins, IPOINT_BEFORE, AFUNPTR(r_cmp), IARG_FAST_ANALYSIS_CALL,
                    IARG_THREAD_ID, IARG_UINT32, REG_INDX(reg_dst),
                    IARG_REG_VALUE, reg_dst, IARG_END);
     // R_CALL(r_cmp, reg_dst);
   }
-  if (INS_OperandIsReg(ins, OP_1)) {
-    REG reg_src = INS_OperandReg(ins, OP_1);
+  if (INS_OperandIsReg(ins, OP_1)) {   //操作数二为寄存器
+    REG reg_src = INS_OperandReg(ins, OP_1);//把第二操作数的寄存器名称返回
     R_CALL(r_cmp, reg_src);
   }
-  if (INS_MemoryOperandCount(ins) > 0) {
+  if (INS_MemoryOperandCount(ins) > 0) {   //指令内存操作数的个数大于0
     M_CALL_R(m_cmp);
   }
 }
@@ -146,10 +146,10 @@ VOID dasm(char *s) { LOGD("[ins] %s\n", s); }
 void ins_inspect(INS ins) {
 
   /* use XED to decode the instruction and extract its opcode */
-  xed_iclass_enum_t ins_indx = (xed_iclass_enum_t)INS_Opcode(ins);
+  xed_iclass_enum_t ins_indx = (xed_iclass_enum_t)INS_Opcode(ins);//返回指令的操作码
   /* sanity check */
   if (unlikely(ins_indx <= XED_ICLASS_INVALID || ins_indx >= XED_ICLASS_LAST)) {
-    LOG(string(__func__) + ": unknown opcode (opcode=" + decstr(ins_indx) +
+    LOG(std::string(__func__) + ": unknown opcode (opcode=" + decstr(ins_indx) +
         ")\n");
     /* done */
     return;
@@ -163,7 +163,7 @@ void ins_inspect(INS ins) {
   INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)dasm, IARG_PTR, cstr, IARG_END);
   */
 
-  switch (ins_indx) {
+  switch (ins_indx) {      //根据不同的指令分情况查桩
   // **** bianry ****
   case XED_ICLASS_ADC:
   case XED_ICLASS_ADD:
@@ -174,7 +174,7 @@ void ins_inspect(INS ins) {
   case XED_ICLASS_AND:
   case XED_ICLASS_OR:
   case XED_ICLASS_POR:
-    ins_binary_op(ins);
+    ins_binary_op(ins);   //根据指令的两个操作数情况（内存，寄存器）查桩
     break;
   case XED_ICLASS_XOR:
   case XED_ICLASS_SBB:
@@ -186,41 +186,41 @@ void ins_inspect(INS ins) {
   case XED_ICLASS_PSUBD:
   case XED_ICLASS_XORPS:
   case XED_ICLASS_XORPD:
-    if (reg_eq(ins)) {
-      ins_clear_op(ins);
+    if (reg_eq(ins)) {    //判断是否第一二个操作数都是寄存器且是同一个寄存器
+      ins_clear_op(ins);  //根据指令操作数不同情况来调用清除污点
     } else {
-      ins_binary_op(ins);
+      ins_binary_op(ins);  //根据指令的两个操作数情况（内存，寄存器）查桩
     }
     break;
   case XED_ICLASS_DIV:
   case XED_ICLASS_IDIV:
   case XED_ICLASS_MUL:
-    ins_unitary_op(ins);
+    ins_unitary_op(ins);  //根据指令的第一个操作数情况（内存，寄存器）查桩
     break;
   case XED_ICLASS_IMUL:
-    if (INS_OperandIsImplicit(ins, OP_1)) {
-      ins_unitary_op(ins);
+    if (INS_OperandIsImplicit(ins, OP_1)) { //是否操作码隐含了该操作数（如，堆栈写入push）
+      ins_unitary_op(ins);             //根据指令的第一个操作数情况（内存，寄存器）查桩
     } else {
-      ins_binary_op(ins);
+      ins_binary_op(ins);          //根据指令的两个操作数情况（内存，寄存器）查桩
       // if ternary // TODO
     }
     break;
   case XED_ICLASS_MULSD:
   case XED_ICLASS_MULPD:
   case XED_ICLASS_DIVSD:
-    ins_binary_op(ins);
+    ins_binary_op(ins);         //根据指令的两个操作数情况（内存，寄存器）查桩
 
   // **** xfer ****
   case XED_ICLASS_BSF:
   case XED_ICLASS_BSR:
   case XED_ICLASS_TZCNT:
   case XED_ICLASS_MOV:
-    if (INS_OperandIsImmediate(ins, OP_1) ||
-        (INS_OperandIsReg(ins, OP_1) &&
+    if (INS_OperandIsImmediate(ins, OP_1) || //如果第二个操作数是立即数或者
+        (INS_OperandIsReg(ins, OP_1) &&      //第二个操作数是寄存器且是段寄存器
          REG_is_seg(INS_OperandReg(ins, OP_1)))) {
-      ins_clear_op(ins);
+      ins_clear_op(ins);             //根据指令操作数不同情况来调用清除污点
     } else {
-      ins_xfer_op(ins);
+      ins_xfer_op(ins);           // //根据指令的两个操作数情况（内存，寄存器）插桩
     }
     break;
 
@@ -246,17 +246,17 @@ void ins_inspect(INS ins) {
   case XED_ICLASS_MOVSD_XMM:
   case XED_ICLASS_CVTSI2SD:
   case XED_ICLASS_CVTSD2SI:
-    ins_xfer_op(ins);
+    ins_xfer_op(ins);         //根据指令的两个操作数情况（内存，寄存器）插桩
     break;
   case XED_ICLASS_MOVLPD:
   case XED_ICLASS_MOVLPS:
-    ins_movlp(ins);
+    ins_movlp(ins);      //根据第一个操作数是内存引用还是寄存器来插桩
     break;
   // case XED_ICLASS_VMOVLPD:
   // case XED_ICLASS_VMOVLPS:
   case XED_ICLASS_MOVHPD:
   case XED_ICLASS_MOVHPS:
-    ins_movhp(ins);
+    ins_movhp(ins);      //根据第一个操作数是内存引用还是寄存器来插桩
     break;
   // case XED_ICLASS_VMOVHPD:
   // case XED_ICLASS_VMOVHPS:
@@ -278,19 +278,20 @@ void ins_inspect(INS ins) {
   case XED_ICLASS_CMOVP:
   case XED_ICLASS_CMOVS:
   case XED_ICLASS_CMOVZ:
-    ins_xfer_op_predicated(ins);
+    ins_xfer_op_predicated(ins); 
+    //与ins_xfer_op相似，区别在于第一操作数必定为寄存器且只分类了通用64，32，16三种情况  
     break;
   case XED_ICLASS_MOVBE:
-    ins_movbe_op(ins);
+    ins_movbe_op(ins);   //对类型m2r,r2m分类插桩
     break;
   case XED_ICLASS_MOVSX:
   case XED_ICLASS_MOVZX:
-    ins_movsx_op(ins);
+    ins_movsx_op(ins);   //对类型r2r,m2r分类插桩
     break;
   case XED_ICLASS_MOVSXD:
-    ins_movsxd_op(ins);
+    ins_movsxd_op(ins);  //与ins_movsx_op相似，但分类情况相对减少
     break;
-  case XED_ICLASS_CBW:
+  case XED_ICLASS_CBW:   //不考虑操作数情况直接调用插桩
     CALL(_cbw);
     break;
   case XED_ICLASS_CWD:
@@ -327,42 +328,43 @@ void ins_inspect(INS ins) {
   case XED_ICLASS_SETP:
   case XED_ICLASS_SETS:
   case XED_ICLASS_SETZ:
-    ins_clear_op_predicated(ins);
+    ins_clear_op_predicated(ins);//与ins_clear_op类似，区被在于可以处理指令有谓词且谓词为假情况
     break;
   case XED_ICLASS_STMXCSR:
-    ins_clear_op(ins);
+    ins_clear_op(ins);         //根据指令操作数不同情况来调用清除污点
     break;
   case XED_ICLASS_SMSW:
   case XED_ICLASS_STR:
   case XED_ICLASS_LAR:
-    ins_clear_op(ins);
+    ins_clear_op(ins);       //根据指令操作数不同情况来调用清除污点
     break;
   case XED_ICLASS_RDPMC:
   case XED_ICLASS_RDTSC:
-    ins_clear_op_l2(ins);
+    ins_clear_op_l2(ins);  //不对操作数分情况直接调用插入r_clrl2
     break;
   case XED_ICLASS_CPUID:
-    ins_clear_op_l4(ins);
+    ins_clear_op_l4(ins);  //不对操作数分情况直接调用插入r_clrl4
     break;
   case XED_ICLASS_LAHF:
-    ins_clear_op(ins);
+    ins_clear_op(ins);        //根据指令操作数不同情况来调用清除污点
     break;
   case XED_ICLASS_CMPXCHG:
   case XED_ICLASS_CMPXCHG_LOCK:
     ins_cmpxchg_op(ins);
+    //根据操作数情况分类插入funptr调用，并根据funptr是否返回非零地址来执行then分析调用
     break;
   case XED_ICLASS_XCHG:
-    ins_xchg_op(ins);
+    ins_xchg_op(ins);      //根据操作数情况分类（r2r,m2r,r2m）插桩
     break;
   case XED_ICLASS_XADD:
   case XED_ICLASS_XADD_LOCK:
-    ins_xadd_op(ins);
+    ins_xadd_op(ins);       //根据操作数情况分类（r2r,r2m）插桩
     break;
-  case XED_ICLASS_XLAT:
-    M2R_CALL(m2r_xfer_opb_l, REG_AL);
+  case XED_ICLASS_XLAT: //以下几个不考虑操作数情况直接调用插桩，_P表示有谓词为假处理机制
+    M2R_CALL(m2r_xfer_opb_l, REG_AL);   //M2R_CALL=INS_InsertCall
     break;
   case XED_ICLASS_LODSB:
-    M2R_CALL_P(m2r_xfer_opb_l, REG_AL);
+    M2R_CALL_P(m2r_xfer_opb_l, REG_AL);   //M2R_CALL_P=INS_InsertPredicatedCall
     break;
   case XED_ICLASS_LODSW:
     M2R_CALL_P(m2r_xfer_opw, REG_AX);
@@ -374,64 +376,64 @@ void ins_inspect(INS ins) {
     M2R_CALL_P(m2r_xfer_opq, REG_RAX);
     break;
   case XED_ICLASS_STOSB:
-    ins_stosb(ins);
+    ins_stosb(ins);    //根据指令是否有重复前缀REPNE (0xF2)来选择是否进行sink点检测
     break;
   case XED_ICLASS_STOSW:
-    ins_stosw(ins);
-    break;
+    ins_stosw(ins);    //根据指令是否有重复前缀REPNE (0xF2)来选择是否进行sink点检测
+    break;             //与ins_stosb相似，区别在于数据长度不同
   case XED_ICLASS_STOSD:
-    ins_stosd(ins);
+    ins_stosd(ins);    //与ins_stosb相似，区别在于数据长度不同
     break;
   case XED_ICLASS_STOSQ:
-    ins_stosq(ins);
+    ins_stosq(ins);   //与ins_stosb相似，区别在于数据长度不同
     break;
-  case XED_ICLASS_MOVSQ:
+  case XED_ICLASS_MOVSQ:     //不考虑操作数情况直接确定调用插桩函数
     M2M_CALL(m2m_xfer_opq);
+    break;                     //M2M_CALL=INS_InsertPredicatedCall
+  case XED_ICLASS_MOVSD:      //不考虑操作数情况直接确定调用插桩函数
+    M2M_CALL(m2m_xfer_opl);   
     break;
-  case XED_ICLASS_MOVSD:
-    M2M_CALL(m2m_xfer_opl);
-    break;
-  case XED_ICLASS_MOVSW:
+  case XED_ICLASS_MOVSW:      //不考虑操作数情况直接确定调用插桩函数
     M2M_CALL(m2m_xfer_opw);
     break;
-  case XED_ICLASS_MOVSB:
+  case XED_ICLASS_MOVSB:       //不考虑操作数情况直接确定调用插桩函数
     M2M_CALL(m2m_xfer_opb);
     break;
-  case XED_ICLASS_SALC:
-    ins_clear_op(ins);
+  case XED_ICLASS_SALC:    
+    ins_clear_op(ins);    //根据指令操作数不同情况来调用清除污点
     break;
   case XED_ICLASS_POP:
-    ins_pop_op(ins);
-    break;
+    ins_pop_op(ins);      //根据第一操作数情况（寄存器，内存）进行插桩  
+    break;             //相比ins_push_op多设计了一种内存写入长度的情况
   case XED_ICLASS_PUSH:
-    ins_push_op(ins);
+    ins_push_op(ins);     //根据第一操作数情况（寄存器，内存）进行插桩
     break;
   case XED_ICLASS_POPA:
     M_CALL_R(m2r_restore_opw);
-    break;
+    break;                            //  M_CALL_R=INS_InsertCall（参数read）
   case XED_ICLASS_POPAD:
     M_CALL_R(m2r_restore_opl);
     break;
   case XED_ICLASS_PUSHA:
     M_CALL_W(r2m_save_opw);
-    break;
+    break;                         //  M_CALL_W=INS_InsertCall（参数write）
   case XED_ICLASS_PUSHAD:
     M_CALL_W(r2m_save_opl);
     break;
   case XED_ICLASS_PUSHF:
-    M_CLEAR_N(2);
+    M_CLEAR_N(2);     //以2为参数传入调用tagmap_clrn作为插桩代码
     break;
   case XED_ICLASS_PUSHFD:
-    M_CLEAR_N(4);
+    M_CLEAR_N(4);     //以4为参数传入调用tagmap_clrn作为插桩代码
     break;
   case XED_ICLASS_PUSHFQ:
-    M_CLEAR_N(8);
+    M_CLEAR_N(8);     //以8为参数传入调用tagmap_clrn作为插桩代码
     break;
   case XED_ICLASS_LEA:
-    ins_lea(ins);
+    ins_lea(ins);     //根据指令的基址寄存器与索引寄存器是否存在情况进行调用
     break;
   case XED_ICLASS_PCMPEQB:
-    ins_binary_op(ins);
+    ins_binary_op(ins);   //根据指令的两个操作数情况（内存，寄存器）查桩
     break;
     // TODO
   case XED_ICLASS_XGETBV:

@@ -301,10 +301,10 @@ static void PIN_FAST_ANALYSIS_CALL _lea_opq(THREADID tid, uint32_t dst,
 
 void ins_xfer_op(INS ins) {
   REG reg_dst, reg_src;
-  if (INS_MemoryOperandCount(ins) == 0) {
+  if (INS_MemoryOperandCount(ins) == 0) {  //如果内存操作数数量为0，然后返回两个寄存器的名称
     reg_dst = INS_OperandReg(ins, OP_0);
     reg_src = INS_OperandReg(ins, OP_1);
-    if (REG_is_gr64(reg_dst)) {
+    if (REG_is_gr64(reg_dst)) {        //判断第一个寄存器的具体情况（64，32，16，SSE，YMM，MMX）
       R2R_CALL(r2r_xfer_opq, reg_dst, reg_src);
     } else if (REG_is_gr32(reg_dst)) {
       R2R_CALL(r2r_xfer_opl, reg_dst, reg_src);
@@ -317,7 +317,7 @@ void ins_xfer_op(INS ins) {
     } else if (REG_is_mm(reg_dst)) {
       R2R_CALL(r2r_xfer_opq, reg_dst, reg_src);
     } else {
-      if (REG_is_Lower8(reg_dst) && REG_is_Lower8(reg_src)) {
+      if (REG_is_Lower8(reg_dst) && REG_is_Lower8(reg_src)) {//判断两个寄存器组合情况（高低8位）
         R2R_CALL(r2r_xfer_opb_l, reg_dst, reg_src);
       } else if (REG_is_Upper8(reg_dst) && REG_is_Upper8(reg_src)) {
         R2R_CALL(r2r_xfer_opb_u, reg_dst, reg_src);
@@ -327,8 +327,8 @@ void ins_xfer_op(INS ins) {
         R2R_CALL(r2r_xfer_opb_ul, reg_dst, reg_src);
       }
     }
-  } else if (INS_OperandIsMemory(ins, OP_1)) {
-    reg_dst = INS_OperandReg(ins, OP_0);
+  } else if (INS_OperandIsMemory(ins, OP_1)) {//如果第二个操作数是内存引用
+    reg_dst = INS_OperandReg(ins, OP_0);//返回第一个操作寄存器名称后分类讨论调用情况
     if (REG_is_gr64(reg_dst)) {
       M2R_CALL(m2r_xfer_opq, reg_dst);
     } else if (REG_is_gr32(reg_dst)) {
@@ -346,7 +346,7 @@ void ins_xfer_op(INS ins) {
     } else {
       M2R_CALL(m2r_xfer_opb_l, reg_dst);
     }
-  } else {
+  } else {  //判断第二个寄存器的具体情况（64，32，16，SSE，YMM，MMX）
     reg_src = INS_OperandReg(ins, OP_1);
     if (REG_is_gr64(reg_src)) {
       R2M_CALL(r2m_xfer_opq, reg_src);
@@ -369,6 +369,7 @@ void ins_xfer_op(INS ins) {
 }
 
 void ins_xfer_op_predicated(INS ins) {
+//与ins_xfer_op相似，区别在于第一操作数必定为寄存器且只分类了通用64，32，16三种情况
   REG reg_dst, reg_src;
   if (INS_MemoryOperandCount(ins) == 0) {
     reg_dst = INS_OperandReg(ins, OP_0);
@@ -392,9 +393,9 @@ void ins_xfer_op_predicated(INS ins) {
   }
 }
 
-void ins_push_op(INS ins) {
+void ins_push_op(INS ins) {    //根据第一操作数情况（寄存器，内存）进行插桩
   REG reg_src;
-  if (INS_OperandIsReg(ins, OP_0)) {
+  if (INS_OperandIsReg(ins, OP_0)) {       //第一操作数是寄存器对其分类插桩
     reg_src = INS_OperandReg(ins, OP_0);
     if (REG_is_gr64(reg_src)) {
       R2M_CALL(r2m_xfer_opq, reg_src);
@@ -403,7 +404,7 @@ void ins_push_op(INS ins) {
     } else {
       R2M_CALL(r2m_xfer_opw, reg_src);
     }
-  } else if (INS_OperandIsMemory(ins, OP_0)) {
+  } else if (INS_OperandIsMemory(ins, OP_0)) {   //第一操作数是内存引用根据写入长度分类插桩  
     if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_64BIT_LEN)) {
       M2M_CALL(m2m_xfer_opq);
     } else if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_LONG_LEN)) {
@@ -413,13 +414,13 @@ void ins_push_op(INS ins) {
     }
   } else {
     INT32 n = INS_OperandWidth(ins, OP_0) / 8;
-    M_CLEAR_N(n);
+    M_CLEAR_N(n);  //以n为参数传入调用tagmap_clrn作为插桩代码
   }
 }
 
-void ins_pop_op(INS ins) {
+void ins_pop_op(INS ins) {    //根据第一操作数情况（寄存器，内存）进行插桩
   REG reg_dst;
-  if (INS_OperandIsReg(ins, OP_0)) {
+  if (INS_OperandIsReg(ins, OP_0)) {  //第一操作数是寄存器对其分类插桩
     reg_dst = INS_OperandReg(ins, OP_0);
     if (REG_is_gr64(reg_dst)) {
       M2R_CALL(m2r_xfer_opq, reg_dst);
@@ -428,7 +429,7 @@ void ins_pop_op(INS ins) {
     } else {
       M2R_CALL(m2r_xfer_opw, reg_dst);
     }
-  } else if (INS_OperandIsMemory(ins, OP_0)) {
+  } else if (INS_OperandIsMemory(ins, OP_0)) {  //第一操作数是内存引用根据写入长度分类插桩
     if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_64BIT_LEN)) {
       M2M_CALL(m2m_xfer_opq);
     } else if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_LONG_LEN)) {
@@ -439,6 +440,7 @@ void ins_pop_op(INS ins) {
   }
 }
 
+//插入funptr调用并根据返回地址情况调用then（具有谓词机制）
 void ins_stos_ins(INS ins, AFUNPTR fn) {
   INS_InsertIfPredicatedCall(ins, IPOINT_BEFORE, (AFUNPTR)rep_predicate,
                              IARG_FAST_ANALYSIS_CALL, IARG_FIRST_REP_ITERATION,
@@ -449,14 +451,17 @@ void ins_stos_ins(INS ins, AFUNPTR fn) {
       IARG_REG_VALUE, INS_OperandReg(ins, OP_4), IARG_END);
 }
 
-void ins_stosb(INS ins) {
-  if (INS_RepPrefix(ins)) {
+//根据指令是否有重复前缀REPNE (0xF2)来选择是否进行sink点检测
+void ins_stosb(INS ins) {  
+  if (INS_RepPrefix(ins)) {   //如果指令具有 REPNE (0xF2) 重复前缀，则为 true
+  //插入funptr调用并根据返回地址情况调用then（具有谓词机制）sink点检测
     ins_stos_ins(ins, (AFUNPTR)r2m_xfer_opbn);
-  } else {
+  } else {  //否则采取一般插桩
     R2M_CALL(r2m_xfer_opb_l, REG_AL);
   }
 }
 
+//根据指令是否有重复前缀REPNE (0xF2)来选择是否进行sink点检测
 void ins_stosw(INS ins) {
   if (INS_RepPrefix(ins)) {
     ins_stos_ins(ins, (AFUNPTR)r2m_xfer_opwn);
@@ -465,7 +470,7 @@ void ins_stosw(INS ins) {
   }
 }
 
-void ins_stosd(INS ins) {
+void ins_stosd(INS ins) {  //与ins_stosb相似，区别在于数据长度不同
   if (INS_RepPrefix(ins)) {
     ins_stos_ins(ins, (AFUNPTR)r2m_xfer_opln);
   } else {
@@ -473,7 +478,7 @@ void ins_stosd(INS ins) {
   }
 }
 
-void ins_stosq(INS ins) {
+void ins_stosq(INS ins) {  //与ins_stosb相似，区别在于数据长度不同
   if (INS_RepPrefix(ins)) {
     ins_stos_ins(ins, (AFUNPTR)r2m_xfer_opqn);
   } else {
@@ -482,10 +487,10 @@ void ins_stosq(INS ins) {
 }
 
 void ins_movlp(INS ins) {
-  if (INS_OperandIsMemory(ins, OP_0)) {
+  if (INS_OperandIsMemory(ins, OP_0)) {   //如果第一个操作数是内存引用
     REG reg_src = INS_OperandReg(ins, OP_1);
     R2M_CALL(r2m_xfer_opq, reg_src);
-  } else {
+  } else {      //否则第一个操作数是寄存器
     REG reg_dst = INS_OperandReg(ins, OP_0);
     M2R_CALL(m2r_xfer_opq, reg_dst);
   }
@@ -501,15 +506,17 @@ void ins_movhp(INS ins) {
   }
 }
 
-void ins_lea(INS ins) {
-  REG reg_base = INS_MemoryBaseReg(ins);
-  REG reg_indx = INS_MemoryIndexReg(ins);
-  REG reg_dst = INS_OperandReg(ins, OP_0);
-  if (reg_base == REG_INVALID() && reg_indx == REG_INVALID()) {
-    ins_clear_op(ins);
+void ins_lea(INS ins) {  //根据指令的基址寄存器与索引寄存器是否存在情况进行调用
+  REG reg_base = INS_MemoryBaseReg(ins);  //返回指令操作的基址寄存器
+  REG reg_indx = INS_MemoryIndexReg(ins);  //返回指令操作的索引寄存器
+  REG reg_dst = INS_OperandReg(ins, OP_0); //返回第一操作数的寄存器
+  if (reg_base == REG_INVALID() && reg_indx == REG_INVALID()) { 
+  //如果基址寄存器和索引寄存器都没有
+    ins_clear_op(ins);  //根据指令操作数不同情况来调用清除污点
   }
   if (reg_base != REG_INVALID() && reg_indx == REG_INVALID()) {
-    if (REG_is_gr64(reg_dst)) {
+  //如果有基址寄存器但没有索引寄存器
+    if (REG_is_gr64(reg_dst)) {   //根据第一操作数的寄存器情况来插桩
       R2R_CALL(r2r_xfer_opq, reg_dst, reg_base);
     } else if (REG_is_gr32(reg_dst)) {
       R2R_CALL(r2r_xfer_opl, reg_dst, reg_base);
@@ -518,7 +525,8 @@ void ins_lea(INS ins) {
     }
   }
   if (reg_base == REG_INVALID() && reg_indx != REG_INVALID()) {
-    if (REG_is_gr64(reg_dst)) {
+  //如果没有基址寄存器但有索引寄存器
+    if (REG_is_gr64(reg_dst)) {  //根据第一操作数的寄存器情况来插桩
       R2R_CALL(r2r_xfer_opq, reg_dst, reg_indx);
     } else if (REG_is_gr32(reg_dst)) {
       R2R_CALL(r2r_xfer_opl, reg_dst, reg_indx);
@@ -527,6 +535,7 @@ void ins_lea(INS ins) {
     }
   }
   if (reg_base != REG_INVALID() && reg_indx != REG_INVALID()) {
+  //如果基址寄存器和索引寄存器都有
     if (REG_is_gr64(reg_dst)) {
       RR2R_CALL(_lea_opq, reg_dst, reg_base, reg_indx);
     } else if (REG_is_gr32(reg_dst)) {
@@ -576,17 +585,17 @@ void PIN_FAST_ANALYSIS_CALL r2m_xfer_opq_rev(THREADID tid, ADDRINT dst,
     tagmap_setb(dst + (7 - i), src_tags[i]);
 }
 
-void ins_movbe_op(INS ins) {
-  if (INS_OperandIsMemory(ins, OP_1)) {
+void ins_movbe_op(INS ins) {  //对类型m2r,r2m分类插桩
+  if (INS_OperandIsMemory(ins, OP_1)) {  //如果第二个操作数是内存引用，第一个是寄存器
     REG reg_dst = INS_OperandReg(ins, OP_0);
-    if (REG_is_gr64(reg_dst)) {
+    if (REG_is_gr64(reg_dst)) {   //对第一个操作寄存器类型判断（64，32，16）
       M2R_CALL(m2r_xfer_opq_rev, reg_dst);
     } else if (REG_is_gr32(reg_dst)) {
       M2R_CALL(m2r_xfer_opl_rev, reg_dst);
     } else if (REG_is_gr16(reg_dst)) {
       M2R_CALL(m2r_xfer_opw_rev, reg_dst);
     }
-  } else {
+  } else {  //否则第一个操作数是内存引用，第二个是寄存器
     REG reg_src = INS_OperandReg(ins, OP_1);
     if (REG_is_gr64(reg_src)) {
       R2M_CALL(r2m_xfer_opq_rev, reg_src);

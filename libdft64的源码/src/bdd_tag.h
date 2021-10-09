@@ -20,7 +20,7 @@
 typedef uint32_t lb_type;
 typedef uint32_t tag_off;
 
-struct tag_seg {
+struct tag_seg {  //一个标签seg包含标志位，32位的开始与结尾
   bool sign;
   tag_off begin;
   tag_off end;
@@ -28,13 +28,13 @@ struct tag_seg {
 
 #endif
 
-class TagNode {
+class TagNode {  //标签节点类
 public:
   lb_type left;
   lb_type right;
   lb_type parent;
   tag_seg seg; // offset of this segement
-  TagNode(lb_type p, tag_off begin, tag_off end) {
+  TagNode(lb_type p, tag_off begin, tag_off end) { //构造一个标签节点要传入32位的父，开始，结束
     parent = p;
     left = 0;
     right = 0;
@@ -45,9 +45,9 @@ public:
   unsigned int get_seg_size() { return (seg.end - seg.begin); }
 };
 
-class BDDTag {
+class BDDTag {//BDD标签类
 private:
-  std::vector<TagNode> nodes;
+  std::vector<TagNode> nodes;   //创建一个标签节点类型的容器
   void dfs_clear(TagNode *cur_node);
   lb_type alloc_node(lb_type parent, tag_off begin, tag_off end);
   lb_type insert_n_zeros(lb_type cur_lb, size_t num, lb_type last_one_lb);

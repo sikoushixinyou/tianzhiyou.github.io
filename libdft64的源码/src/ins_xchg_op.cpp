@@ -476,11 +476,12 @@ static void PIN_FAST_ANALYSIS_CALL _xadd_r2m_opq(THREADID tid, ADDRINT dst,
 }
 
 void ins_cmpxchg_op(INS ins) {
+//根据操作数情况分类插入funptr调用，并根据funptr是否返回非零地址来执行then分析调用
   REG reg_dst, reg_src;
-  if (INS_MemoryOperandCount(ins) == 0) {
+  if (INS_MemoryOperandCount(ins) == 0) {  //r2r情况
     reg_dst = INS_OperandReg(ins, OP_0);
     reg_src = INS_OperandReg(ins, OP_1);
-    if (REG_is_gr64(reg_dst)) {
+    if (REG_is_gr64(reg_dst)) {//第一寄存器为64
       INS_InsertIfCall(ins, IPOINT_BEFORE, (AFUNPTR)_cmpxchg_r2r_opq_fast,
                        IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_REG_VALUE,
                        REG_EAX, IARG_UINT32, REG_INDX(reg_dst), IARG_REG_VALUE,
@@ -489,7 +490,7 @@ void ins_cmpxchg_op(INS ins) {
                          IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_UINT32,
                          REG_INDX(reg_dst), IARG_UINT32, REG_INDX(reg_src),
                          IARG_END);
-    } else if (REG_is_gr32(reg_dst)) {
+    } else if (REG_is_gr32(reg_dst)) {//第一寄存器为32
       INS_InsertIfCall(ins, IPOINT_BEFORE, (AFUNPTR)_cmpxchg_r2r_opl_fast,
                        IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_REG_VALUE,
                        REG_EAX, IARG_UINT32, REG_INDX(reg_dst), IARG_REG_VALUE,
@@ -498,7 +499,7 @@ void ins_cmpxchg_op(INS ins) {
                          IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_UINT32,
                          REG_INDX(reg_dst), IARG_UINT32, REG_INDX(reg_src),
                          IARG_END);
-    } else if (REG_is_gr16(reg_dst)) {
+    } else if (REG_is_gr16(reg_dst)) {//第一寄存器为16
       INS_InsertIfCall(ins, IPOINT_BEFORE, (AFUNPTR)_cmpxchg_r2r_opw_fast,
                        IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_REG_VALUE,
                        REG_AX, IARG_UINT32, REG_INDX(reg_dst), IARG_REG_VALUE,
@@ -509,11 +510,11 @@ void ins_cmpxchg_op(INS ins) {
                          IARG_END);
     } else {
       xed_iclass_enum_t ins_indx = (xed_iclass_enum_t)INS_Opcode(ins);
-      LOG(string(__func__) + ": unhandled opcode (opcode=" + decstr(ins_indx) +
+      LOG(std::string(__func__) + ": unhandled opcode (opcode=" + decstr(ins_indx) +
           ")\n");
     }
-  } else {
-    reg_src = INS_OperandReg(ins, OP_1);
+  } else {   //m2r情况
+    reg_src = INS_OperandReg(ins, OP_1);  //第二寄存器情况分类（64，32，16）
     if (REG_is_gr64(reg_src)) {
       INS_InsertIfCall(ins, IPOINT_BEFORE, (AFUNPTR)_cmpxchg_m2r_opq_fast,
                        IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_REG_VALUE,
@@ -540,13 +541,13 @@ void ins_cmpxchg_op(INS ins) {
                          IARG_END);
     } else {
       xed_iclass_enum_t ins_indx = (xed_iclass_enum_t)INS_Opcode(ins);
-      LOG(string(__func__) + ": unhandled opcode (opcode=" + decstr(ins_indx) +
+      LOG(std::string(__func__) + ": unhandled opcode (opcode=" + decstr(ins_indx) +
           ")\n");
     }
   }
 }
 
-void ins_xchg_op(INS ins) {
+void ins_xchg_op(INS ins) {  //根据操作数情况分类（r2r,m2r,r2m）插桩
   REG reg_dst, reg_src;
   if (INS_MemoryOperandCount(ins) == 0) {
     reg_dst = INS_OperandReg(ins, OP_0);
@@ -647,7 +648,7 @@ void ins_xchg_op(INS ins) {
   }
 }
 
-void ins_xadd_op(INS ins) {
+void ins_xadd_op(INS ins) {       //根据操作数情况分类（r2r,r2m）插桩
   REG reg_dst, reg_src;
   if (INS_MemoryOperandCount(ins) == 0) {
     reg_dst = INS_OperandReg(ins, OP_0);

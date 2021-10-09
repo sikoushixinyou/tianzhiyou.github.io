@@ -2,13 +2,13 @@
 #define LIBDFT_TAG_TRAITS_H
 
 #include <string>
-template <typename T> struct tag_traits {};
+template <typename T> struct tag_traits {};   //结构体模板
 template <typename T> T tag_combine(T const &lhs, T const &rhs);
 template <typename T> std::string tag_sprint(T const &tag);
 template <typename T> T tag_alloc(unsigned int offset);
 
 /********************************************************
- uint8_t tags
+ uint8_t tags  一个字节 char
  ********************************************************/
 typedef uint8_t libdft_tag_uint8;
 

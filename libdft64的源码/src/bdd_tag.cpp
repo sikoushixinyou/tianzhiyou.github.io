@@ -16,17 +16,17 @@
 #define ROOT 0
 
 BDDTag::BDDTag() {
-  nodes.reserve(VEC_CAP);
-  nodes.push_back(TagNode(ROOT, 0, 0));
+  nodes.reserve(VEC_CAP);   //更改容器容量为VEC_CAP=二进1左移16位
+  nodes.push_back(TagNode(ROOT, 0, 0));//在容器尾部插入一个空节点
 };
 
 BDDTag::~BDDTag(){};
 
 lb_type BDDTag::alloc_node(lb_type parent, tag_off begin, tag_off end) {
-  lb_type lb = nodes.size();
-  if (lb < MAX_LB) {
+  lb_type lb = nodes.size();//返回容器元素个数
+  if (lb < MAX_LB) {//如果小于最大长度则在容器尾部插入此节点
     nodes.push_back(TagNode(parent, begin, end));
-    return lb;
+    return lb;//返回刚插入的元素索引
   } else {
     return ROOT;
   }
@@ -34,30 +34,44 @@ lb_type BDDTag::alloc_node(lb_type parent, tag_off begin, tag_off end) {
 
 lb_type BDDTag::insert_n_zeros(lb_type cur_lb, size_t num,
                                lb_type last_one_lb) {
+               //在指定索引为cur_lb节点的结尾位置作为新节点的起始位置，last_one_lb为父节点
+               //以该位置开始分配制定大小为num的空间给新节点
+               //更新索引为cur_lb节点左去指向新节点的索引
+               //最后返回新节点的索引
 
   while (num != 0) {
-    lb_type next = nodes[cur_lb].left;
-    size_t next_size = nodes[next].get_seg_size();
-    if (next == 0) {
-      tag_off off = nodes[cur_lb].seg.end;
+    lb_type next = nodes[cur_lb].left;//把索引为cur_lb节点的左赋值给next
+    size_t next_size = nodes[next].get_seg_size();//获得next节点长度
+    if (next == 0) {//索引为cur_lb节点的左不存在
+    //1.新的节点起始地址是索引为cur_lb节点结尾地址
+    //2.把索引为cur_lb节点左去指向新节点的索引
+    //3.新节点的父节点索引是last_one_lb
+      tag_off off = nodes[cur_lb].seg.end;//索引为cur_lb节点的结尾赋值给off
+      //在容器尾部插入一个节点：
+      //父=last_one_lb，开始=索引为cur_lb节点的结尾，结尾=开始+num
+      //且返回new_lb=容器元素个数=刚插入的元素索引
       lb_type new_lb = alloc_node(last_one_lb, off, off + num);
+      //让索引为cur_lb节点左指向刚插入的新节点的索引
       nodes[cur_lb].left = new_lb;
+      //新节点的索引赋值给 cur_lb 
       cur_lb = new_lb;
       num = 0;
-    } else if (next_size > num) {
+    } else if (next_size > num) { //next节点的长度大于num
       tag_off off = nodes[cur_lb].seg.end;
       lb_type new_lb = alloc_node(last_one_lb, off, off + num);
       nodes[cur_lb].left = new_lb;
       cur_lb = new_lb;
+      //把next节点的开始更新为新插入节点的结尾
       nodes[next].seg.begin = off + num;
       num = 0;
-    } else {
+    } else {//next节点的长度小于num
+    //这种情况下新节点的信息覆盖next节点区域后还不够，把多出来部分继续往下一个next节点区域覆盖
       cur_lb = next;
       num -= next_size;
     }
   }
 
-  return cur_lb;
+  return cur_lb;     //返回新元素的索引
 }
 
 lb_type BDDTag::insert_n_ones(lb_type cur_lb, size_t num, lb_type last_one_lb) {

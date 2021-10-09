@@ -185,10 +185,10 @@ static void PIN_FAST_ANALYSIS_CALL _movsx_m2r_opql(THREADID tid, uint32_t dst,
 
 void ins_movsx_op(INS ins) {
   REG reg_dst, reg_src;
-  if (INS_MemoryOperandCount(ins) == 0) {
+  if (INS_MemoryOperandCount(ins) == 0) {  //两个操作数都是寄存器r2r
     reg_dst = INS_OperandReg(ins, OP_0);
     reg_src = INS_OperandReg(ins, OP_1);
-    if (REG_is_gr16(reg_dst)) {
+    if (REG_is_gr16(reg_dst)) {  //对寄存器类型细分分类情况
       if (REG_is_Upper8(reg_src))
         R2R_CALL(_movsx_r2r_opwb_u, reg_dst, reg_src);
       else
@@ -209,9 +209,9 @@ void ins_movsx_op(INS ins) {
       else if (REG_is_gr32(reg_dst))
         R2R_CALL(_movsx_r2r_oplb_l, reg_dst, reg_src);
     }
-  } else {
+  } else {//对于第一个是寄存器第二个是内存引用m2r
     reg_dst = INS_OperandReg(ins, OP_0);
-    if (REG_is_gr16(reg_dst)) {
+    if (REG_is_gr16(reg_dst)) {     //对寄存器类型细分分类情况
       M2R_CALL(_movsx_m2r_opwb, reg_dst);
     } else if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_WORD_LEN)) {
       if (REG_is_gr64(reg_dst)) {
@@ -232,13 +232,13 @@ void ins_movsx_op(INS ins) {
 void ins_movsxd_op(INS ins) {
   REG reg_dst, reg_src;
   reg_dst = INS_OperandReg(ins, OP_0);
-  if (!REG_is_gr64(reg_dst)) {
-    ins_xfer_op(ins);
+  if (!REG_is_gr64(reg_dst)) {//如果第一操作寄存器不是通用64位寄存器
+    ins_xfer_op(ins);    ////根据指令的两个操作数情况（内存，寄存器）插桩
   }
-  if (INS_MemoryOperandCount(ins) == 0) {
+  if (INS_MemoryOperandCount(ins) == 0) {//两个操作数都是寄存器r2r
     reg_src = INS_OperandReg(ins, OP_1);
     R2R_CALL(_movsx_r2r_opql, reg_dst, reg_src);
-  } else {
+  } else {    //m2r
     M2R_CALL(_movsx_m2r_opql, reg_dst);
   }
 }

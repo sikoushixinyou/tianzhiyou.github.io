@@ -96,24 +96,24 @@ static void PIN_FAST_ANALYSIS_CALL m2r_unitary_opl(THREADID tid, ADDRINT src) {
 }
 
 void ins_unitary_op(INS ins) {
-  if (INS_OperandIsMemory(ins, OP_0))
-    switch (INS_MemoryWriteSize(ins)) {
-    case BIT2BYTE(MEM_64BIT_LEN):
+  if (INS_OperandIsMemory(ins, OP_0))   //第一个操作数是内存引用
+    switch (INS_MemoryWriteSize(ins)) {  //返回以字节为单位的内存写入大小
+    case BIT2BYTE(MEM_64BIT_LEN):      //将64位的长度进行右移3位
       M_CALL_R(m2r_unitary_opq);
       break;
-    case BIT2BYTE(MEM_LONG_LEN):
+    case BIT2BYTE(MEM_LONG_LEN):      //将32位的长度进行右移3位
       M_CALL_R(m2r_unitary_opl);
       break;
-    case BIT2BYTE(MEM_WORD_LEN):
+    case BIT2BYTE(MEM_WORD_LEN):       //将16位的长度进行右移3位
       M_CALL_R(m2r_unitary_opw);
       break;
-    case BIT2BYTE(MEM_BYTE_LEN):
+    case BIT2BYTE(MEM_BYTE_LEN):      //将8位的长度进行右移3位
     default:
       M_CALL_R(m2r_unitary_opb);
       break;
     }
   else {
-    REG reg_src = INS_OperandReg(ins, OP_0);
+    REG reg_src = INS_OperandReg(ins, OP_0);    //返回第一个操作数寄存器名称
     if (REG_is_gr64(reg_src))
       R_CALL(r2r_unitary_opq, reg_src);
     else if (REG_is_gr32(reg_src))

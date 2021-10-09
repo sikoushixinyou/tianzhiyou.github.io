@@ -59,7 +59,7 @@ typedef struct {
  */
 typedef struct {
   int nr;                       /* syscall number */
-  ADDRINT arg[SYSCALL_ARG_NUM]; /* arguments */
+  ADDRINT arg[SYSCALL_ARG_NUM]; /* arguments */  //储存的是系统调用的传入参数
   ADDRINT ret;                  /* return value */
   void *aux;                    /* auxiliary data */
   /* 	ADDRINT errno; */       /* error code */

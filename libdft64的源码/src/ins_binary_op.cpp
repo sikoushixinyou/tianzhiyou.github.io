@@ -181,37 +181,37 @@ static void PIN_FAST_ANALYSIS_CALL r2m_binary_opy(THREADID tid, ADDRINT dst,
     tagmap_setb(dst + i, tag_combine(MTAG(dst + i), src_tags[i]));
 }
 
-void ins_binary_op(INS ins) {
-  if (INS_OperandIsImmediate(ins, OP_1))
+void ins_binary_op(INS ins) {   //根据指令的两个操作数情况（内存，寄存器）进行调用查桩
+  if (INS_OperandIsImmediate(ins, OP_1))  //如果第二个操作数是立即数
     return;
   REG reg_dst, reg_src;
-  if (INS_MemoryOperandCount(ins) == 0) {
-    reg_dst = INS_OperandReg(ins, OP_0);
-    reg_src = INS_OperandReg(ins, OP_1);
-    if (REG_is_gr64(reg_dst)) {
+  if (INS_MemoryOperandCount(ins) == 0) {   //如果内存操作数数量为0
+    reg_dst = INS_OperandReg(ins, OP_0);    //返回第一个操作数寄存器的名称
+    reg_src = INS_OperandReg(ins, OP_1);    //返回第二个操作数寄存器的名称
+    if (REG_is_gr64(reg_dst)) {      //通用64位寄存器
       R2R_CALL(r2r_binary_opq, reg_dst, reg_src);
-    } else if (REG_is_gr32(reg_dst)) {
+    } else if (REG_is_gr32(reg_dst)) {        //通用32位寄存器
       R2R_CALL(r2r_binary_opl, reg_dst, reg_src);
-    } else if (REG_is_gr16(reg_dst)) {
+    } else if (REG_is_gr16(reg_dst)) {        //通用16位寄存器
       R2R_CALL(r2r_binary_opw, reg_dst, reg_src);
-    } else if (REG_is_xmm(reg_dst)) {
+    } else if (REG_is_xmm(reg_dst)) {         //SSE寄存器
       R2R_CALL(r2r_binary_opx, reg_dst, reg_src);
-    } else if (REG_is_ymm(reg_dst)) {
+    } else if (REG_is_ymm(reg_dst)) {         //YMM寄存器
       R2R_CALL(r2r_binary_opy, reg_dst, reg_src);
-    } else if (REG_is_mm(reg_dst)) {
+    } else if (REG_is_mm(reg_dst)) {         //MMX位寄存器
       R2R_CALL(r2r_binary_opq, reg_dst, reg_src);
     } else {
-      if (REG_is_Lower8(reg_dst) && REG_is_Lower8(reg_src))
+      if (REG_is_Lower8(reg_dst) && REG_is_Lower8(reg_src))  //两个寄存器都是低8位
         R2R_CALL(r2r_binary_opb_l, reg_dst, reg_src);
-      else if (REG_is_Upper8(reg_dst) && REG_is_Upper8(reg_src))
+      else if (REG_is_Upper8(reg_dst) && REG_is_Upper8(reg_src))  //两个寄存器都是高8位
         R2R_CALL(r2r_binary_opb_u, reg_dst, reg_src);
-      else if (REG_is_Lower8(reg_dst))
+      else if (REG_is_Lower8(reg_dst))             //第一个寄存器是低8位
         R2R_CALL(r2r_binary_opb_lu, reg_dst, reg_src);
       else
         R2R_CALL(r2r_binary_opb_ul, reg_dst, reg_src);
     }
-  } else if (INS_OperandIsMemory(ins, OP_1)) {
-    reg_dst = INS_OperandReg(ins, OP_0);
+  } else if (INS_OperandIsMemory(ins, OP_1)) {   //如果第二个操作数是内存引用
+    reg_dst = INS_OperandReg(ins, OP_0);   //返回第一个操作数寄存器的名称
     if (REG_is_gr64(reg_dst)) {
       M2R_CALL(m2r_binary_opq, reg_dst);
     } else if (REG_is_gr32(reg_dst)) {
@@ -230,7 +230,7 @@ void ins_binary_op(INS ins) {
       M2R_CALL(m2r_binary_opb_l, reg_dst);
     }
   } else {
-    reg_src = INS_OperandReg(ins, OP_1);
+    reg_src = INS_OperandReg(ins, OP_1);  //返回第二个操作数寄存器的名称
     if (REG_is_gr64(reg_src)) {
       R2M_CALL(r2m_binary_opq, reg_src);
     } else if (REG_is_gr32(reg_src)) {
