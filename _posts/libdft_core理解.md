@@ -627,3 +627,268 @@ void ins_stos_ins(INS ins, AFUNPTR fn) {
 ```
 
 基本实现逻辑是通过先判断传入指令是否具有 REPNE (0xF2) 重复前缀，有的话调用ins_stos_ins进行插入funptr调用并根据返回地址情况调用then（具有谓词机制），若是没有 REPNE (0xF2) 重复前缀则调用R2M_CALL进行插桩污点标记
+
+---
+
+#### 有效情况XED_ICLASS_STOSW
+
+```c++
+case XED_ICLASS_STOSW:
+    ins_stosw(ins);    //根据指令是否有重复前缀REPNE (0xF2)来选择是否进行sink点检测
+    break;             //与ins_stosb相似，区别在于数据长度不同
+```
+
+对于XED_ICLASS_STOSW情况：
+
+调用ins_stosw来判断指令是否有重复前缀REPNE (0xF2)来选择是否进行sink点检测。其中ins_stosw与上面提到过的ins_stosb基本相似，区别在于数据长度不同。
+
+---
+
+#### 有效情况XED_ICLASS_STOSD
+
+```c++
+case XED_ICLASS_STOSD:
+    ins_stosd(ins);    //与ins_stosb相似，区别在于数据长度不同
+    break;
+```
+
+---
+
+#### 有效情况XED_ICLASS_STOSQ
+
+```c++
+case XED_ICLASS_STOSQ:
+    ins_stosq(ins);   //与ins_stosb相似，区别在于数据长度不同
+    break;
+```
+
+---
+
+#### 有效情况XED_ICLASS_MOVSQ,XED_ICLASS_MOVSD,XED_ICLASS_MOVSW,XED_ICLASS_MOVSB
+
+```c++
+case XED_ICLASS_MOVSQ:     //不考虑操作数情况直接确定调用插桩函数
+    M2M_CALL(m2m_xfer_opq);
+    break;                     //M2M_CALL=INS_InsertPredicatedCall
+  case XED_ICLASS_MOVSD:      //不考虑操作数情况直接确定调用插桩函数
+    M2M_CALL(m2m_xfer_opl);   
+    break;
+  case XED_ICLASS_MOVSW:      //不考虑操作数情况直接确定调用插桩函数
+    M2M_CALL(m2m_xfer_opw);
+    break;
+  case XED_ICLASS_MOVSB:       //不考虑操作数情况直接确定调用插桩函数
+    M2M_CALL(m2m_xfer_opb);
+    break;
+```
+
+上述几种情况都是不考虑操作数情况直接确定调用m2m（即数据操作从内存到内存）的插桩函数，其中M2M_CALL=INS_InsertPredicatedCall是调用的pin工具中具有谓词为假处理机制的接口api，具体的几种情况的插桩代码区别只在于数据长度，其逻辑基本相同。
+
+---
+
+#### 有效情况XED_ICLASS_SALC
+
+```c++
+case XED_ICLASS_SALC:    
+    ins_clear_op(ins);    //根据指令操作数不同情况来调用清除污点
+    break;
+```
+
+---
+
+#### 有效情况XED_ICLASS_PUSH
+
+```c++
+case XED_ICLASS_PUSH:
+    ins_push_op(ins);     //根据第一操作数情况（寄存器，内存）进行插桩
+    break;
+```
+
+对于XED_ICLASS_PUSH情况：
+
+调用ins_push_op根据第一操作数情况（寄存器，内存）进行插桩，其具体实现如下
+
+```c++
+void ins_push_op(INS ins) {    //根据第一操作数情况（寄存器，内存）进行插桩
+  REG reg_src;
+  if (INS_OperandIsReg(ins, OP_0)) {       //第一操作数是寄存器对其分类插桩
+    reg_src = INS_OperandReg(ins, OP_0);
+    if (REG_is_gr64(reg_src)) {
+      R2M_CALL(r2m_xfer_opq, reg_src);
+    } else if (REG_is_gr32(reg_src)) {
+      R2M_CALL(r2m_xfer_opl, reg_src);
+    } else {
+      R2M_CALL(r2m_xfer_opw, reg_src);
+    }
+  } else if (INS_OperandIsMemory(ins, OP_0)) {   //第一操作数是内存引用根据写入长度分类插桩  
+    if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_64BIT_LEN)) {
+      M2M_CALL(m2m_xfer_opq);
+    } else if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_LONG_LEN)) {
+      M2M_CALL(m2m_xfer_opl);
+    } else {
+      M2M_CALL(m2m_xfer_opw);
+    }
+  } else {
+    INT32 n = INS_OperandWidth(ins, OP_0) / 8;
+    M_CLEAR_N(n);  //以n为参数传入调用tagmap_clrn作为插桩代码
+  }
+}
+```
+
+基本实现逻辑是把指令的第一个操作数分为寄存器（细分为通用64，32，16位）与内存引用（根据内存写入长度细分）以及立即数三种大情况进行分类污点标记，其中INS_OperandWidth的返回值是操作数的数据长度做除8的操作是要把这个长度从以比特为单位变化为以字节为单位。
+
+---
+
+#### 有效情况XED_ICLASS_POP
+
+```c++
+	case XED_ICLASS_POP:
+    ins_pop_op(ins);      //根据第一操作数情况（寄存器，内存）进行插桩  
+    break;      
+```
+
+对于XED_ICLASS_POP情况：
+
+调用ins_pop_op来根据第一操作数情况（寄存器，内存）进行插桩，其具体实现如下：
+
+```c++
+void ins_pop_op(INS ins) {    //根据第一操作数情况（寄存器，内存）进行插桩
+  REG reg_dst;
+  if (INS_OperandIsReg(ins, OP_0)) {  //第一操作数是寄存器对其分类插桩
+    reg_dst = INS_OperandReg(ins, OP_0);
+    if (REG_is_gr64(reg_dst)) {
+      M2R_CALL(m2r_xfer_opq, reg_dst);
+    } else if (REG_is_gr32(reg_dst)) {
+      M2R_CALL(m2r_xfer_opl, reg_dst);
+    } else {
+      M2R_CALL(m2r_xfer_opw, reg_dst);
+    }
+  } else if (INS_OperandIsMemory(ins, OP_0)) {  //第一操作数是内存引用根据写入长度分类插桩
+    if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_64BIT_LEN)) {
+      M2M_CALL(m2m_xfer_opq);
+    } else if (INS_MemoryWriteSize(ins) == BIT2BYTE(MEM_LONG_LEN)) {
+      M2M_CALL(m2m_xfer_opl);
+    } else {
+      M2M_CALL(m2m_xfer_opw);
+    }
+  }
+}
+```
+
+ins_pop_op的实现逻辑基本与上述提到过的ins_push_op函数基本一致，区别只在于当指令第一操作数为寄存器是ins_pop_op调用的是m2r类型的插桩代码，而ins_push_op调用的是r2m类型的插桩代码
+
+---
+
+#### 有效类型XED_ICLASS_POPA，XED_ICLASS_POPAD，XED_ICLASS_PUSHAD
+
+```c++
+case XED_ICLASS_POPA:
+    M_CALL_R(m2r_restore_opw);
+    break;                            //  M_CALL_R=INS_InsertCall（参数read）
+  case XED_ICLASS_POPAD:
+    M_CALL_R(m2r_restore_opl);
+    break;
+  case XED_ICLASS_PUSHA:
+    M_CALL_W(r2m_save_opw);
+    break;                         //  M_CALL_W=INS_InsertCall（参数write）
+  case XED_ICLASS_PUSHAD:
+    M_CALL_W(r2m_save_opl);
+    break;
+```
+
+以上几种类型都是不考虑操作数的情况下直接确定调用插桩代码，其中M_CALL_R=INS_InsertCall（参数read），M_CALL_W=INS_InsertCall（参数write），二者虽然分为不同类型但是调用的pin工具接口API其实是相同的一个，只是传入不同的参数。
+
+---
+
+#### 有效类型XED_ICLASS_PUSHF，XED_ICLASS_PUSHFD，XED_ICLASS_PUSHFQ
+
+```c++
+case XED_ICLASS_PUSHF:
+    M_CLEAR_N(2);     //以2为参数传入调用tagmap_clrn作为插桩代码
+    break;
+  case XED_ICLASS_PUSHFD:
+    M_CLEAR_N(4);     //以4为参数传入调用tagmap_clrn作为插桩代码
+    break;
+  case XED_ICLASS_PUSHFQ:
+    M_CLEAR_N(8);     //以8为参数传入调用tagmap_clrn作为插桩代码
+    break;
+```
+
+---
+
+#### 有效类型XED_ICLASS_PCMPEQB
+
+```c++
+case XED_ICLASS_PCMPEQB:
+    ins_binary_op(ins);   //根据指令的两个操作数情况（内存，寄存器）查桩
+    break;
+```
+
+---
+
+#### 有效情况XED_ICLASS_LEA
+
+```c++
+case XED_ICLASS_LEA:
+    ins_lea(ins);     //根据指令的基址寄存器与索引寄存器是否存在情况进行调用
+    break;
+```
+
+对于XED_ICLASS_LEA情况：
+
+它调用ins_lea来根据指令的基址寄存器与索引寄存器是否存在情况进行调用，它的实现判断与分类的寄存器都与之前所见的情况有着区别，具体的实现如下：
+
+```c++
+void ins_lea(INS ins) {  //根据指令的基址寄存器与索引寄存器是否存在情况进行调用
+  REG reg_base = INS_MemoryBaseReg(ins);  //返回指令操作的基址寄存器
+  REG reg_indx = INS_MemoryIndexReg(ins);  //返回指令操作的索引寄存器
+  REG reg_dst = INS_OperandReg(ins, OP_0); //返回第一操作数的寄存器
+  if (reg_base == REG_INVALID() && reg_indx == REG_INVALID()) { 
+  //如果基址寄存器和索引寄存器都没有
+    ins_clear_op(ins);  //根据指令操作数不同情况来调用清除污点
+  }
+  if (reg_base != REG_INVALID() && reg_indx == REG_INVALID()) {
+  //如果有基址寄存器但没有索引寄存器
+    if (REG_is_gr64(reg_dst)) {   //根据第一操作数的寄存器情况来插桩
+      R2R_CALL(r2r_xfer_opq, reg_dst, reg_base);
+    } else if (REG_is_gr32(reg_dst)) {
+      R2R_CALL(r2r_xfer_opl, reg_dst, reg_base);
+    } else if (REG_is_gr16(reg_dst)) {
+      R2R_CALL(r2r_xfer_opw, reg_dst, reg_base);
+    }
+  }
+  if (reg_base == REG_INVALID() && reg_indx != REG_INVALID()) {
+  //如果没有基址寄存器但有索引寄存器
+    if (REG_is_gr64(reg_dst)) {  //根据第一操作数的寄存器情况来插桩
+      R2R_CALL(r2r_xfer_opq, reg_dst, reg_indx);
+    } else if (REG_is_gr32(reg_dst)) {
+      R2R_CALL(r2r_xfer_opl, reg_dst, reg_indx);
+    } else if (REG_is_gr16(reg_dst)) {
+      R2R_CALL(r2r_xfer_opw, reg_dst, reg_indx);
+    }
+  }
+  if (reg_base != REG_INVALID() && reg_indx != REG_INVALID()) {
+  //如果基址寄存器和索引寄存器都有
+    if (REG_is_gr64(reg_dst)) {
+      RR2R_CALL(_lea_opq, reg_dst, reg_base, reg_indx);
+    } else if (REG_is_gr32(reg_dst)) {
+      RR2R_CALL(_lea_opl, reg_dst, reg_base, reg_indx);
+    } else if (REG_is_gr16(reg_dst)) {
+      RR2R_CALL(_lea_opw, reg_dst, reg_base, reg_indx);
+    }
+  }
+}
+```
+
+它的实现是通过判断基址寄存器与索引寄存器的存在情况来进行分类插桩，大方向的分为四类：
+
+（1）指令操作数中基址寄存器和索引寄存器都没有，这时候调用ins_clear_op根据指令操作数不同情况来进行清除污点
+
+（2）指令操作数中有基址寄存器但没有索引寄存器，这时候将指令第一个操作数寄存器细分到通用64，32，16位几种情况并传入基址寄存器作为参数之一来分类插桩污点标记
+
+（3）指令操作数中有没有基址寄存器但有索引寄存器，这时候将指令第一个操作数寄存器细分到通用64，32，16位几种情况并传入索引寄存器作为参数之一来分类插桩污点标记
+
+（4）指令操作数中基址寄存器和索引寄存器都有，这时候将指令第一个操作数寄存器细分到通用64，32，16位几种情况并传入索引寄存器与基址寄存器都作为参数之一来分类插桩污点标记
+
+---
+
+到此libdft64对于指令级插桩污点传播中，对不同的指令进行分类实现对应的污点传播方法的有效分类列举全部完毕，源代码中对于指令除了以上类型外还有许多其他种类的情况，但是都没有对该类情况进行实现污点传播，而是直接忽略，我把这种的指令分类成为无效分类，这种的无效分类我没有进行列举出，本篇笔记只列举了所有的有效分类情况。
