@@ -16,7 +16,7 @@
 #define ROOT 0
 
 BDDTag::BDDTag() {
-  nodes.reserve(VEC_CAP);   //更改容器容量为VEC_CAP=二进1左移16位
+  nodes.reserve(VEC_CAP);   //更改容器容量为VEC_CAP=二进1左移16位=2^16
   nodes.push_back(TagNode(ROOT, 0, 0));//在容器尾部插入一个空节点
 };
 
@@ -75,11 +75,13 @@ lb_type BDDTag::insert_n_zeros(lb_type cur_lb, size_t num,
 }
 
 lb_type BDDTag::insert_n_ones(lb_type cur_lb, size_t num, lb_type last_one_lb) {
-
+//与上述的insert_n_zeros功能基本一致，区别在于
+//_zeros是把左节点看作是next节点，插入的新节点是用cur_lb的左节点去指向
+//_ones是把右节点看作是next节点，插入的新节点是用cur_lb的右节点去指向
   while (num != 0) {
     lb_type next = nodes[cur_lb].right;
     tag_off last_end = nodes[cur_lb].seg.end;
-    if (next == 0) {
+    if (next == 0) {//cur_lb的右节点为空
       tag_off off = last_end;
       lb_type new_lb = alloc_node(last_one_lb, off, off + num);
       nodes[cur_lb].right = new_lb;
@@ -121,24 +123,25 @@ void BDDTag::set_size(lb_type lb, size_t size) {
 
 lb_type BDDTag::combine(lb_type l1, lb_type l2) {
 
+//如果其中一个为0则返回另外一个
   if (l1 == 0)
     return l2;
   if (l2 == 0 || l1 == l2)
     return l1;
-
+//只当l1与l2都小于0xF0000000时，has_len_lb为假
   bool has_len_lb = BDD_HAS_LEN_LB(l1) || BDD_HAS_LEN_LB(l2);
-  l1 = l1 & LB_MASK;
-  l2 = l2 & LB_MASK;
+  l1 = l1 & LB_MASK;//LB_MASK=24左移一位再减1=0x1111
+  l2 = l2 & LB_MASK;//经过这里只保留了l1与l2的低4位
 
   if (l1 > l2) {
     lb_type tmp = l2;
     l2 = l1;
     l1 = tmp;
-  }
+  }//做一个排序保证l1是小值l2是大值
 
   // get all the segments
   std::stack<lb_type> lb_st;
-  lb_type last_begin = MAX_LB;
+  lb_type last_begin = MAX_LB;//0x1111
 
   while (l1 > 0 && l1 != l2) {
     tag_off b1 = nodes[l1].seg.begin;
@@ -198,9 +201,9 @@ lb_type BDDTag::combine(lb_type l1, lb_type l2) {
 
 const std::vector<tag_seg> BDDTag::find(lb_type lb) {
 
-  lb = lb & LB_MASK;
+  lb = lb & LB_MASK;//取lb的低4位
   std::vector<tag_seg> tag_list;
-  tag_off last_begin = MAX_LB;
+  tag_off last_begin = MAX_LB;//0x1111=15
   while (lb > 0) {
     if (nodes[lb].seg.begin < last_begin) {
       tag_list.push_back(nodes[lb].seg);

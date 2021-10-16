@@ -51,9 +51,11 @@
 #define VIRT2PAGETABLE(addr) ((addr) >> PAGETABLE_BITS)
 #define VIRT2PAGETABLE_OFFSET(addr)                                            \
   (((addr)&PAGETABLE_OFFSET_MASK) >> PAGE_BITS)
-
+//addr与0x00FFFFFFU（32位U的意思是无符号整型）逐位做“与”运算=取addr的低24位
+//后再右移动12位=对这24位保留其高12位
 #define VIRT2PAGE(addr) VIRT2PAGETABLE_OFFSET(addr)
 #define VIRT2OFFSET(addr) ((addr)&OFFSET_MASK)
+//addr与0x00000FFFU（32位U的意思是无符号整型）逐位做“与”运算取addr的低12位
 
 #define ALIGN_OFF_MAX 8 /* max alignment offset */
 #define ASSERT_FAST 32  /* used in comparisons  */
@@ -66,14 +68,20 @@ extern void libdft_die();
 // typedef std::array<tag_table_t*, TOP_DIR_SZ> tag_dir_t;
 /* For file taint */
 typedef struct {
-  tag_t tag[PAGE_SIZE];
+  tag_t tag[PAGE_SIZE];//4096=2^12=4k
 } tag_page_t;
 typedef struct {
-  tag_page_t *page[PAGETABLE_SZ];
+  tag_page_t *page[PAGETABLE_SZ];//0X1000=2^12 =4k
 } tag_table_t;
 typedef struct {
-  tag_table_t *table[TOP_DIR_SZ];
+  tag_table_t *table[TOP_DIR_SZ];//0x800000=2^23 =8m
 } tag_dir_t;
+/*
+tag_t类型其实是无符号整型32位=4个字节
+一个指针在32位的计算机上，占4个字节；
+一个指针在64位的计算机上，占8个字节。
+1M = 2^20字节 1k = 2^10字节
+*/
 
 void tagmap_setb(ADDRINT addr, tag_t const &tag);
 void tagmap_setb_reg(THREADID tid, unsigned int reg_idx, unsigned int off,

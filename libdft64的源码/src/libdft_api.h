@@ -48,8 +48,8 @@
  * x86/x86_32/i386 arch
  */
 typedef struct {
-  // general purpose registers (GPRs)
-  tag_t gpr[GRP_NUM + 1][TAGS_PER_GPR];
+  // general purpose registers (GPRs)通用寄存器
+  tag_t gpr[GRP_NUM + 1][TAGS_PER_GPR];//[43+1][32]
 } vcpu_ctx_t;
 
 /*

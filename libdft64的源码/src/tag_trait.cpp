@@ -5,16 +5,19 @@
 /********************************************************
  uint8_t tags
  ********************************************************/
+//对两个8位的输入做逐位或运算
 template <> uint8_t tag_combine(uint8_t const &lhs, uint8_t const &rhs) {
   return lhs | rhs;   //按二进制位进行"或"运算
 }
 
+//8位标签转换为string类型后的结
 template <> std::string tag_sprint(uint8_t const &tag) {
   std::stringstream ss;
   ss << tag;
   return ss.str();     //返回8位标签转换为string类型后的结果
 }
 
+//返回传入的32位偏移是否大于0
 template <> uint8_t tag_alloc<uint8_t>(unsigned int offset) {
   return offset > 0;    //返回传入的偏移是否大于0
 }

@@ -268,6 +268,8 @@ static void post_read_hook(THREADID tid, syscall_ctx_t *ctx)
  * readv(2) and preadv(2) syscall post hook(source)
  *
  * tag the buffer of the sensitive documents relatively
+ *
+ * int readv(int fd, const struct iovec *vector, int count)
  */
 static void post_readv_hook(THREADID tid, syscall_ctx_t *ctx)
 {
@@ -290,12 +292,15 @@ static void post_readv_hook(THREADID tid, syscall_ctx_t *ctx)
 	it = fdset.find((int)ctx->arg[SYSCALL_ARG0]);
 
 	/* iterate the iovec structures */
+	//arg[SYSCALL_ARG2]是系统调用的第三个传入参数，在readv（）中这个参数是表示要从iov结构中读进元素的计数个数count
+	//tot > 0 系统调用的返回值大于0
 	for (i = 0; i < (int)ctx->arg[SYSCALL_ARG2] && tot > 0; i++) 
 	{
 		/* get an iovec  */
 		iov = ((struct iovec *)ctx->arg[SYSCALL_ARG1]) + i;
 		
 		/* get the length of the iovec */
+		//（条件表达式）？（条件为真时的表达式）：（条件为假时的表达式）
 		iov_tot = (tot >= (size_t)iov->iov_len) ?
 			(size_t)iov->iov_len : tot;
 	
@@ -303,10 +308,12 @@ static void post_readv_hook(THREADID tid, syscall_ctx_t *ctx)
 		if (it != fdset.end())
 		{
 	              char* file_path = get_filepath((int)ctx->arg[SYSCALL_ARG0]);
+				  //根据系统调用的第一个传入参数获得文件的路径
 			      if(strstr(file_path, PLAINTEXT_FILE) != NULL)
+				  //判断这个文件路径中是否含有字符串"plaintext.txt"
 			            /* set the tag markings */
 	                    tagmap_setn((size_t)iov->iov_base, iov_tot, TAG_PLAINTEXT);
-		          else
+		          else//否则文件路径中含有字符串"key.txt"
 			            /* set the tag markings */
 	                    tagmap_setn((size_t)iov->iov_base, iov_tot, TAG_KEY);	
 	    }
