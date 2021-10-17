@@ -10,7 +10,7 @@
 
 ​		Tagmap 模块为注入被分析二进制可执行文件中的污点分析桩提供污点存储和污点操作功能。主要实现对被监控软件在 Linux x64 平台下进程地址空间以及每个线程通用寄存器中的数据进行标记，将数据的污点标记存储在影子内存 Mem_tag 以及影子寄存器 Reg_tag 对应的位置；并为 Tracker 和 I/O Interface 提供设置污点标记、清除污点标记以及获取污点标记等污点标记操作功能。
 
-![tagmap模块示意图](/Users/tianzhiyou/Documents/tianzhiyou.github.io/photo/tagmap.png)
+![tagmap模块示意图](https://github.com/sikoushixinyou/tianzhiyou.github.io/blob/main/photo/tagmap.png?raw=true)
 
 ​		如图所示，Tagmap 为应用程序的进程虚拟地址空间以及线程通用寄存器保存污点标记的信息，它主要包括内存污点标记结构以及寄存器污点标记结构两个部分。内存污点标记结构为应用程序的每个进程存储进程内存空间数据的污点标记。根据 x64 虚拟地址空间结构，内存污点标记结构设计为类两级页表结构：其中 top_dir结构长度为 8M，存储指向二级表结构 page_table 的指针值；page_table 长度为 4K，存储指向 tag_page 结构的指针值；tag_page 结构存储实际的数据标记，长度为 4K，为对应虚拟地址数据存储其污点标记；此外，cleared_value 表示常数 0，表示该虚拟地址的数据没有被污染或者应用程序没有使用该内存空间。
 
@@ -336,7 +336,7 @@ void PIN_FAST_ANALYSIS_CALL tagmap_clrn(ADDRINT addr, UINT32 n) {
 
 ​		如图所示，根据libdft: Practical Dynamic Data Flow Tracking for Commodity System这篇论文中所描述的32位的libdft中的vcpu结构储存的是每个标签采取一字节到大小，每个通用寄存器使用4个标签来标记，32位的系统中共有8个通用寄存器，所以整个32位下的vcpu结构实现应该需要32字节。
 
-![32vcpu](/Users/tianzhiyou/Documents/tianzhiyou.github.io/photo/32vcpu.png)
+![32vcpu](https://github.com/sikoushixinyou/tianzhiyou.github.io/blob/main/photo/32vcpu.png?raw=true)
 
 具体的代码实现如下：
 
@@ -370,7 +370,7 @@ gpr数组设计为uint32_t，即32位无符号整型，占4个字节正好就是
 
 ​		对与64位的系统，首先通用寄存器变化位有16个，同时每个寄存器不再是用4个一字节的标签来标记，应该变为使用8个标签来标记，如图所示。
 
-![64vcpu](/Users/tianzhiyou/Documents/tianzhiyou.github.io/photo/64vcpu.png)
+![64vcpu](https://github.com/sikoushixinyou/tianzhiyou.github.io/blob/main/photo/64vcpu.png?raw=true)
 
 按照图上的设计，64位下的vcpu结构应该是一个16x8二维数据结构，但是在如下的实际代码实现中，gpr是一个43x32的二维结构，其中43是由于加入了除了16个通用寄存器外的其他的寄存器所对应的阴影寄存器。
 
